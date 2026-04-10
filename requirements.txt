@@ -1,0 +1,9 @@
+torch>=2.0.0
+numpy
+scipy
+nibabel
+pytest
+matplotlib
+jupyter
+requests
+tqdm
