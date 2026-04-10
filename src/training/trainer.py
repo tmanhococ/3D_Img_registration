@@ -86,9 +86,8 @@ class Trainer:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode='min',
-            factor=0.1,       # 1e-4 → 1e-5
+            factor=0.1,       # 1e-4 -> 1e-5
             patience=10000,   # steps before reducing
-            verbose=True,
             min_lr=1e-5,
         )
 
