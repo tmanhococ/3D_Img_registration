@@ -18,6 +18,7 @@ import time
 import torch
 import torch.optim as optim
 from torch.amp import GradScaler, autocast
+from tqdm import tqdm
 
 # Local imports resolved relative to project root
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -169,6 +170,13 @@ class Trainer:
         print(f'  Params:       {self.model.count_parameters():,}')
         print(f'{"="*60}\n')
 
+        pbar = tqdm(
+            total=total_iters, 
+            initial=self.start_iter,
+            desc="Training",
+            dynamic_ncols=True
+        )
+
         for iteration in range(self.start_iter, total_iters):
             try:
                 if oom_handler:
@@ -179,25 +187,17 @@ class Trainer:
                     loss_dict, m, f, s_m, s_f, phi, warped_sm = self._step()
 
             except MemoryError as e:
-                print(str(e))
+                pbar.write(str(e))
                 raise
 
             self._loss_history.append(loss_dict['loss_total'])
 
-            # ---- Logging ----
-            if iteration % log_every == 0:
-                elapsed = time.time() - self._time_start
-                speed = (iteration - self.start_iter + 1) / max(elapsed, 1)
-                eta_s = (total_iters - iteration) / max(speed, 1e-6)
-                eta_h = eta_s / 3600
-                print(
-                    f'[{iteration:>7d}/{total_iters}] '
-                    f'Loss: {loss_dict["loss_total"]:.5f} | '
-                    f'Dice: {loss_dict["loss_dice"]:.5f} | '
-                    f'Grad: {loss_dict["loss_grad"]:.5f} | '
-                    f'Speed: {speed:.1f} it/s | '
-                    f'ETA: {eta_h:.1f}h'
-                )
+            # ---- Update Progress Bar ----
+            pbar.set_postfix({
+                'loss': f"{loss_dict['loss_total']:.4f}",
+                'dice': f"{loss_dict['loss_dice']:.4f}"
+            })
+            pbar.update(1)
 
             # ---- Visualization (Step 1, 2, 3) ----
             if iteration % vis_every == 0:
@@ -219,6 +219,8 @@ class Trainer:
                 self.model, self.optimizer,
                 iteration, loss_dict['loss_total']
             )
+
+        pbar.close()
 
         # Final force-save
         self.checkpoint_mgr.save(
