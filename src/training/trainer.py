@@ -197,10 +197,10 @@ class Trainer:
             if iteration % self.config.get('log_every', 100) == 0:
                 history_file = os.path.join(self.checkpoint_mgr.run_dir, 'history.csv')
                 write_header = not os.path.exists(history_file)
-                with open(history_file, 'a', encoding='utf-8') as f:
+                with open(history_file, 'a', encoding='utf-8') as history_f:
                     if write_header:
-                        f.write('iteration,loss_total,loss_dice,loss_grad\n')
-                    f.write(f"{iteration},{loss_dict['loss_total']:.6f},{loss_dict['loss_dice']:.6f},{loss_dict['loss_grad']:.6f}\n")
+                        history_f.write('iteration,loss_total,loss_dice,loss_grad\n')
+                    history_f.write(f"{iteration},{loss_dict['loss_total']:.6f},{loss_dict['loss_dice']:.6f},{loss_dict['loss_grad']:.6f}\n")
 
             # ---- Update Progress Bar ----
             pbar.set_postfix({
