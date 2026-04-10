@@ -32,15 +32,15 @@ from ... import config
 # Coordinate grid helper
 # -----------------------------------------------------------------------
 
-def _make_coord_grid_cpu(target_shape):
+def _make_coord_grid(target_shape, device):
     """
-    Returns normalized [-1, 1] coordinate grids on CPU.
+    Returns normalized [-1, 1] coordinate grids.
     Each output is (D, H, W).
     """
     D, H, W = target_shape
-    zz = torch.linspace(-1, 1, D).view(D, 1, 1).expand(D, H, W)
-    yy = torch.linspace(-1, 1, H).view(1, H, 1).expand(D, H, W)
-    xx = torch.linspace(-1, 1, W).view(1, 1, W).expand(D, H, W)
+    zz = torch.linspace(-1, 1, D, device=device).view(D, 1, 1).expand(D, H, W)
+    yy = torch.linspace(-1, 1, H, device=device).view(1, H, 1).expand(D, H, W)
+    xx = torch.linspace(-1, 1, W, device=device).view(1, 1, W).expand(D, H, W)
     return zz, yy, xx
 
 
@@ -58,27 +58,27 @@ def _random_size():
 
 
 # -----------------------------------------------------------------------
-# Primitive rasterizers — all on CPU, output: (D, H, W) float32 in [0,1]
+# Primitive rasterizers — run on GPU, output: (D, H, W) float32 in [0,1]
 # -----------------------------------------------------------------------
 
-def rasterize_sphere(target_shape):
-    zz, yy, xx = _make_coord_grid_cpu(target_shape)
+def rasterize_sphere(target_shape, device):
+    zz, yy, xx = _make_coord_grid(target_shape, device)
     cz, cy, cx = _random_center()
     r = _random_size()
     dist2 = (zz - cz)**2 + (yy - cy)**2 + (xx - cx)**2
     return torch.exp(-dist2 / (2 * r**2))
 
 
-def rasterize_ellipsoid(target_shape):
-    zz, yy, xx = _make_coord_grid_cpu(target_shape)
+def rasterize_ellipsoid(target_shape, device):
+    zz, yy, xx = _make_coord_grid(target_shape, device)
     cz, cy, cx = _random_center()
     rz = _random_size(); ry = _random_size(); rx = _random_size()
     dist2 = ((zz - cz) / rz)**2 + ((yy - cy) / ry)**2 + ((xx - cx) / rx)**2
     return torch.exp(-dist2 / 2.0)
 
 
-def rasterize_cuboid(target_shape):
-    zz, yy, xx = _make_coord_grid_cpu(target_shape)
+def rasterize_cuboid(target_shape, device):
+    zz, yy, xx = _make_coord_grid(target_shape, device)
     cz, cy, cx = _random_center()
     hz = _random_size(); hy = _random_size(); hx = _random_size()
     k = 30.0  # sharpness
@@ -87,8 +87,8 @@ def rasterize_cuboid(target_shape):
             * torch.sigmoid(k * (hx - (xx - cx).abs())))
 
 
-def rasterize_rotated_cuboid(target_shape):
-    zz, yy, xx = _make_coord_grid_cpu(target_shape)
+def rasterize_rotated_cuboid(target_shape, device):
+    zz, yy, xx = _make_coord_grid(target_shape, device)
     cz, cy, cx = _random_center()
     angle = random.uniform(0, math.pi)
     cos_a = math.cos(angle)
@@ -103,8 +103,8 @@ def rasterize_rotated_cuboid(target_shape):
             * torch.sigmoid(k * (hx - xx_r.abs())))
 
 
-def rasterize_cylinder(target_shape):
-    zz, yy, xx = _make_coord_grid_cpu(target_shape)
+def rasterize_cylinder(target_shape, device):
+    zz, yy, xx = _make_coord_grid(target_shape, device)
     cz, cy, cx = _random_center()
     r  = _random_size()
     hz = _random_size() * 1.5
@@ -123,18 +123,18 @@ _PRIMITIVE_FNS = [
 ]
 
 
-def _random_primitive_cpu(target_shape):
-    """Pick a random primitive type and rasterize it on CPU. Returns (D, H, W)."""
-    return random.choice(_PRIMITIVE_FNS)(target_shape)
+def _random_primitive(target_shape, device):
+    """Pick a random primitive type and rasterize it on the target device."""
+    return random.choice(_PRIMITIVE_FNS)(target_shape, device)
 
 
 # -----------------------------------------------------------------------
-# Blob helper (single channel, on CPU)
+# Blob helper (single channel, run on device)
 # -----------------------------------------------------------------------
 
-def _make_blob_cpu(target_shape):
-    """Generate one blob channel on CPU. Returns (D, H, W) float32."""
-    low = torch.rand((1, 1, *config.CUSTOM_BLOB_RES), dtype=torch.float32)
+def _make_blob(target_shape, device):
+    """Generate one blob channel on device. Returns (D, H, W) float32."""
+    low = torch.rand((1, 1, *config.CUSTOM_BLOB_RES), dtype=torch.float32, device=device)
     up  = F.interpolate(low, size=target_shape, mode='trilinear', align_corners=True)
     # Repeated avg_pool approximates Gaussian
     k, p = 11, 5
@@ -281,13 +281,13 @@ def generate_custom_labels(batch_size=1, device=config.DEVICE):
 
     # --- Step 3: Streaming argmax over J labels ---
     for j in range(J):
-        # Rasterize primitive on CPU (one channel)
-        prim_cpu  = _random_primitive_cpu(target_shape)          # (D, H, W)
-        blob_cpu  = _make_blob_cpu(target_shape)                 # (D, H, W)
-        score_cpu = alpha * prim_cpu + beta * blob_cpu           # (D, H, W)
+        # Rasterize primitive and blob dynamically on GPU (one channel)
+        prim_gpu  = _random_primitive(target_shape, device)          # (D, H, W)
+        blob_gpu  = _make_blob(target_shape, device)                 # (D, H, W)
+        score_gpu = alpha * prim_gpu + beta * blob_gpu               # (D, H, W)
 
-        # Transfer to GPU and add batch/channel dims
-        score_gpu = score_cpu.to(device).unsqueeze(0).unsqueeze(0)  # (1, 1, D, H, W)
+        # Add batch/channel dims
+        score_gpu = score_gpu.unsqueeze(0).unsqueeze(0)  # (1, 1, D, H, W)
         if batch_size > 1:
             score_gpu = score_gpu.expand(batch_size, -1, -1, -1, -1).contiguous()
 
@@ -295,14 +295,14 @@ def generate_custom_labels(batch_size=1, device=config.DEVICE):
         score_warped = warper.warp_volume(score_gpu, phi, mode='bilinear')  # (B, 1, D, H, W)
 
         # Update champion via streaming argmax
-        is_winner   = score_warped > winner_score                # (B, 1, D, H, W) bool
+        is_winner    = score_warped > winner_score                # (B, 1, D, H, W) bool
         winner_score = torch.where(is_winner, score_warped, winner_score)
         winner_idx   = torch.where(is_winner,
                                    torch.full_like(winner_idx, j + 1),
                                    winner_idx)
 
-        # Explicit cleanup
-        del prim_cpu, blob_cpu, score_cpu, score_gpu, score_warped, is_winner
+        # Explicit cleanup to keep VRAM strictly minimal
+        del prim_gpu, blob_gpu, score_gpu, score_warped, is_winner
 
     del winner_score, phi
     return winner_idx   # (B, 1, D, H, W) long, labels in [0, J]
