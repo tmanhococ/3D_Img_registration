@@ -123,22 +123,32 @@ class Trainer:
             with autocast(device_type=_amp_device):
                 phi = self.model(m, f)            # (B, 3, D, H, W)
 
-                # Warp moving label map with predicted phi
-                # NOTE: s_m must be float for SpatialTransformer
-                warped_sm = self.label_warper(s_m.float(), phi)
+                # IMPORTANT: Must one-hot encode and use BILINEAR warping 
+                # so that gradients can flow through grid_sample! nearest is non-differentiable.
+                s_m_onehot = self.loss_fn._to_onehot(s_m)
+                warped_sm_onehot = self.img_warper(s_m_onehot, phi)
 
                 # ---- Step 4: Compute loss ----
-                total_loss, loss_dict = self.loss_fn(phi, warped_sm, s_f)
+                total_loss, loss_dict = self.loss_fn(phi, warped_sm_onehot, s_f)
 
             self.scaler.scale(total_loss).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
+
+            # For visualization hook later
+            warped_sm = warped_sm_onehot.argmax(dim=1, keepdim=True)
         else:
             phi = self.model(m, f)
-            warped_sm = self.label_warper(s_m.float(), phi)
-            total_loss, loss_dict = self.loss_fn(phi, warped_sm, s_f)
+            
+            # Non-AMP branch
+            s_m_onehot = self.loss_fn._to_onehot(s_m)
+            warped_sm_onehot = self.img_warper(s_m_onehot, phi)
+            total_loss, loss_dict = self.loss_fn(phi, warped_sm_onehot, s_f)
+            
             total_loss.backward()
             self.optimizer.step()
+
+            warped_sm = warped_sm_onehot.argmax(dim=1, keepdim=True)
 
         self.scheduler.step(total_loss.item())
 
