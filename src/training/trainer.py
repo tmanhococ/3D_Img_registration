@@ -192,6 +192,16 @@ class Trainer:
 
             self._loss_history.append(loss_dict['loss_total'])
 
+            # ---- CSV Logging ----
+            # Save history to CSV every log_every iterations or very first 
+            if iteration % self.config.get('log_every', 100) == 0:
+                history_file = os.path.join(self.checkpoint_mgr.run_dir, 'history.csv')
+                write_header = not os.path.exists(history_file)
+                with open(history_file, 'a', encoding='utf-8') as f:
+                    if write_header:
+                        f.write('iteration,loss_total,loss_dice,loss_grad\n')
+                    f.write(f"{iteration},{loss_dict['loss_total']:.6f},{loss_dict['loss_dice']:.6f},{loss_dict['loss_grad']:.6f}\n")
+
             # ---- Update Progress Bar ----
             pbar.set_postfix({
                 'loss': f"{loss_dict['loss_total']:.4f}",
