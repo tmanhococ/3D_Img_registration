@@ -16,10 +16,11 @@ TARGET_SHAPE = (160, 192, 224)
 # ===========================================================
 # --- sm-shapes Baseline Generator (Variant A) ---
 # ===========================================================
-SHAPES_NUM_LABELS   = 15           # J: blob label count (baseline)
+SHAPES_NUM_LABELS   = 26           # J: tăng lên 26 (theo yêu cầu của bạn) để viền label nhỏ lại
 SHAPES_NOISE_RES    = (10, 12, 14) # Low-res noise for blobby shapes
 SHAPES_SVF_RES      = (10, 12, 14) # SVF warp resolution for shapes
-SHAPES_SVF_STD      = 2.0          # SVF std dev for shape warping
+SHAPES_SVF_STD      = 3.0          # Tăng biên độ vặn xoắn lên 3.0 để gây sai số lớn lúc đầu (tránh Loss rớt luôn xuống 0.15)
+
 
 # ===========================================================
 # --- Custom Generator (Variant B — Shape-Focused) ---

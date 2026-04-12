@@ -161,14 +161,11 @@ def main():
 
     print_vram_advisory(args.nb_features)
 
-    # ---- Auto-adjust num_labels based on generator ----
-    if args.num_labels == cfg.NUM_LABELS:
-        if args.generator_type == 'baseline':
-            args.num_labels = cfg.SHAPES_NUM_LABELS + 1  # 15 shapes + 1 background = 16
-        else:
-            args.num_labels = cfg.CUSTOM_NUM_LABELS
-
     # ---- Build config dict (used for JSON logging) ----
+    # Ensure num_labels matches the config standard
+    if args.num_labels == cfg.NUM_LABELS:
+        args.num_labels = cfg.CUSTOM_NUM_LABELS  # Use 26 for both now
+
     current_config = {
         'run_id':           None,
         'model':            'SynthMorphUNet',
