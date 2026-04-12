@@ -21,23 +21,28 @@ def normalize_min_max(image):
             
     return out
 
-def apply_gamma(image, gamma_range):
+import math
+
+def apply_gamma(image, gamma_std):
     """
-    Applies global gamma augmentation: I_new = I_old ^ gamma
+    Applies global gamma augmentation: m = m_tilde ^ exp(gamma)
+    where gamma ~ N(0, sigma_gamma^2)
     
     Args:
         image: (B, C, D, H, W) - Expects already normalized to [0, 1]
-        gamma_range: tuple (min, max) to uniformly sample exponent.
+        gamma_std: standard deviation for normal distribution
     """
     B = image.shape[0]
     out = image.clone()
     
     for b in range(B):
-        gamma = torch.empty(1).uniform_(*gamma_range).item()
+        # gamma ~ N(0, sigma_gamma^2)
+        gamma = torch.randn(1).item() * gamma_std
+        exponent = math.exp(gamma)
         
         # Apply exponent explicitly handling tiny numbers near 0 smoothly.
         # Ensure we don't have negative numbers for floating point fractional powers.
         clamped = torch.clamp(out[b], min=0.0)
-        out[b] = torch.pow(clamped, gamma)
+        out[b] = torch.pow(clamped, exponent)
         
     return out

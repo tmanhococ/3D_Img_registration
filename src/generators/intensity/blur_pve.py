@@ -8,13 +8,13 @@ def gaussian_kernel_1d(sigma, kernel_size):
     kernel = torch.exp(- (x ** 2) / (2 * sigma ** 2))
     return kernel / kernel.sum()
 
-def apply_anisotropic_blur(image, std_range):
+def apply_anisotropic_blur(image, max_std):
     """
     Simulates Partial Volume Effects (PVE) by applying anisotropic Gaussian blur.
     
     Args:
         image: (B, C, D, H, W)
-        std_range: tuple limiting the sigma for independent x, y, z blurs.
+        max_std: float max limit for the independent x, y, z blurs.
     """
     B, C, D, H, W = image.shape
     device = image.device
@@ -23,7 +23,8 @@ def apply_anisotropic_blur(image, std_range):
     for b in range(B):
         for c in range(C):
             # Sample 3 independent sigmas for D, H, W (z, y, x)
-            sigmas = [torch.empty(1).uniform_(*std_range).item() for _ in range(3)]
+            # sigma_i ~ U(0, b_K)
+            sigmas = [torch.empty(1).uniform_(0.0, max_std).item() for _ in range(3)]
             
             for dim, sigma in enumerate(sigmas):
                 kernel_size = int(math.ceil(sigma * 3)) * 2 + 1

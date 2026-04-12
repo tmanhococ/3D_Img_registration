@@ -14,38 +14,36 @@ PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
 TARGET_SHAPE = (160, 192, 224)
 
 # ===========================================================
-# --- sm-shapes Baseline Generator (Variant A) ---
+# --- sm-shapes Baseline Generator (Variant A - IEEE Matched) ---
 # ===========================================================
-SHAPES_NUM_LABELS   = 26           # J: tăng lên 26 (theo yêu cầu của bạn) để viền label nhỏ lại
-SHAPES_NOISE_RES    = (10, 12, 14) # Low-res noise for blobby shapes
-SHAPES_SVF_RES      = (10, 12, 14) # SVF warp resolution for shapes
-SHAPES_SVF_STD      = 3.0          # Tăng biên độ vặn xoắn lên 3.0 để gây sai số lớn lúc đầu (tránh Loss rớt luôn xuống 0.15)
-
+SHAPES_NUM_LABELS   = 26           # J: 26 (from paper)
+SHAPES_NOISE_RES    = (5, 6, 7)    # rp = 1:32 relative to (160, 192, 224)
+SHAPES_MAX_SVF_STD  = 100.0        # bp = 100 max std for individual SVF warping
 
 # ===========================================================
-# --- Custom Generator (Variant B — Shape-Focused) ---
+# --- Custom Generator (Variant B — Geometric Inherited) ---
 # ===========================================================
-CUSTOM_NUM_LABELS    = 26          # J=26 (more diversity than baseline J=15)
+CUSTOM_NUM_LABELS    = 26          
 CUSTOM_ALPHA         = 1.0         # Weight for geometric primitive scores
 CUSTOM_BETA          = 0.5         # Weight for blob (low-freq noise) scores
-CUSTOM_BLOB_RES      = (10, 12, 14)  # Blob noise resolution (same as baseline)
+CUSTOM_BLOB_RES      = (5, 6, 7)   # Inherit standard low-res noise from baseline
 
-# Multi-scale SVF warping: 3 levels from global -> micro
-CUSTOM_SVF_GLOBAL_RES = (16, 16, 16)  # Large-scale alignment
+# Multi-scale SVF warping geometric properties
+CUSTOM_SVF_GLOBAL_RES = (16, 16, 16)  
 CUSTOM_SVF_GLOBAL_STD = 3.0
-CUSTOM_SVF_LOCAL_RES  = (8,  8,  8)   # Mid-scale (local twist/fold)
+CUSTOM_SVF_LOCAL_RES  = (8,  8,  8)   
 CUSTOM_SVF_LOCAL_STD  = 1.5
-CUSTOM_SVF_MICRO_RES  = (4,  4,  4)   # Fine-scale (inflate/deflate)
+CUSTOM_SVF_MICRO_RES  = (4,  4,  4)   
 CUSTOM_SVF_MICRO_STD  = 0.5
 
 # Primitive sizes (relative to volume, e.g. 0.05 = 5% of dim)
-CUSTOM_PRIM_SIZE_MIN  = 0.08       # Tăng Min size để loại bỏ các khối quá li ti rác
-CUSTOM_PRIM_SIZE_MAX  = 0.45       # Tăng Max size lấp đầy khoảng xanh vắng vẻ
+CUSTOM_PRIM_SIZE_MIN  = 0.08       
+CUSTOM_PRIM_SIZE_MAX  = 0.45       
 
 # Deformation augmentation priors
-CUSTOM_TWIST_STD      = 1.2        # SVF std for twist deformation
-CUSTOM_INFLATE_STD    = 1.0        # SVF std for inflate/deflate
-CUSTOM_FOLD_STD       = 0.8        # SVF std for local folding
+CUSTOM_TWIST_STD      = 1.2        
+CUSTOM_INFLATE_STD    = 1.0        
+CUSTOM_FOLD_STD       = 0.8        
 
 # ===========================================================
 # --- sm-brains (Label Generator) ---
@@ -53,27 +51,25 @@ CUSTOM_FOLD_STD       = 0.8        # SVF std for local folding
 BUCKNER40_URL = "https://surfer.nmr.mgh.harvard.edu/pub/data/tutorial_data.tar.gz"
 
 # ===========================================================
-# --- Spatial Transform (used in final warp, both variants) ---
+# --- Spatial Transform (Fixed/Moving Pair Generation) ---
 # ===========================================================
-SPATIAL_SVF_RES             = (16, 16, 16)
-SPATIAL_SVF_STD             = 3.0
+MULTI_SVF_RES               = [(20, 24, 28), (10, 12, 14), (5, 6, 7)] # rv in {1:8, 1:16, 1:32}
+MULTI_SVF_MAX_STD           = 3.0  # bv = 3
 SCALING_AND_SQUARING_STEPS  = 7
 
 # ===========================================================
 # --- Intensity Generator (Synthetic MRI) ---
 # ===========================================================
-# Trải rộng dải giá trị độ sáng (Mean) để các nhãn có xác suất khác màu cao hơn
-INTENSITY_GMM_MEAN_RANGE = (0.1, 0.95)
-# Giảm thiểu độ nhòe viền (Std) để ranh giới 2 khối không bị lem tan chảy vào nhau
-INTENSITY_GMM_STD_RANGE  = (0.01, 0.04)
+INTENSITY_GMM_MEAN_RANGE = (25.0, 225.0)  # a_mu, b_mu
+INTENSITY_GMM_STD_RANGE  = (5.0, 25.0)    # a_sigma, b_sigma
 
 # ===========================================================
 # --- Artifact & Augmentation ---
 # ===========================================================
-BLUR_STD_RANGE   = (0.5, 1.5)
-BIAS_FIELD_RES   = (4, 4, 4)
-BIAS_FIELD_STD   = 0.3
-GAMMA_RANGE      = (0.5, 2.0)
+BLUR_MAX_STD     = 1.0           # b_K
+BIAS_FIELD_RES   = (4, 5, 6)     # r_B = 1:40
+BIAS_FIELD_MAX_STD = 0.3         # b_B
+GAMMA_STD        = 0.25          # sigma_gamma
 
 # ===========================================================
 # --- Training Hyperparameters ---

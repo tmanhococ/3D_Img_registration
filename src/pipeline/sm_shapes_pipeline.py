@@ -11,7 +11,7 @@ class SynthMorphShapesPipeline:
 
     Args:
         device: torch device
-        generator_type: 'baseline' (Variant A) or 'custom' (Variant B — geometric primitives)
+        generator_type: 'baseline' (Variant A) or 'custom' (Variant B)
     """
 
     def __init__(self, device=config.DEVICE, generator_type: str = 'baseline'):
@@ -28,45 +28,59 @@ class SynthMorphShapesPipeline:
             raise ValueError(f"Unknown generator_type '{generator_type}'. "
                              f"Expected 'baseline' or 'custom'.")
 
+    def _generate_multi_res_deformation(self, batch_size):
+        """
+        IEEE Paper: "we sample several SVFs v_m ~ N(0, σ_v^2) at resolutions r_v,
+        drawing a different σ_v for each to synthesize a more complex deformation...
+        The upsampled SVFs are then combined additively"
+        """
+        svf_total = 0
+        for res in config.MULTI_SVF_RES:
+            # Draw independent sigma_v ~ U(0, b_v) for each resolution level
+            std_v = torch.rand(1).item() * config.MULTI_SVF_MAX_STD
+            
+            svf_component = svf_generator.generate_svf(
+                target_shape=config.TARGET_SHAPE,
+                svf_res=res,
+                std=std_v,
+                device=self.device,
+                batch_size=batch_size
+            )
+            # Additively combine SVF components
+            if isinstance(svf_total, int):
+                svf_total = svf_component
+            else:
+                svf_total = svf_total + svf_component
+                
+        # Integrate combined SVF to smooth diffeomorphic deformation field
+        phi = scaling_squaring.integrate_svf(svf_total, steps=config.SCALING_AND_SQUARING_STEPS)
+        return phi
+
     def _synthesize_mri(self, label_map):
         img = gmm_sampler.sample_intensities(
             label_map,
             config.INTENSITY_GMM_MEAN_RANGE,
             config.INTENSITY_GMM_STD_RANGE
         )
-        img = blur_pve.apply_anisotropic_blur(img, config.BLUR_STD_RANGE)
+        img = blur_pve.apply_anisotropic_blur(img, config.BLUR_MAX_STD)
         img = bias_field.apply_bias_field(img)
         img = augmentation.normalize_min_max(img)
-        img = augmentation.apply_gamma(img, config.GAMMA_RANGE)
+        img = augmentation.apply_gamma(img, config.GAMMA_STD)
         return img
 
     def generate_pair(self, batch_size=1):
         """
         Generate a synthetic (moving, fixed) MRI pair with shared anatomy.
-
-        Returns:
-            m    (B, 1, D, H, W): synthetic moving image
-            f    (B, 1, D, H, W): synthetic fixed image
-            s_m  (B, 1, D, H, W): moving label map (long)
-            s_f  (B, 1, D, H, W): fixed label map (long)
         """
         # 1. Base anatomy (shared)
         s = self._generate_fn(batch_size, self.device)
 
         # 2. Independent moving deformation
-        svf_m = svf_generator.generate_svf(
-            config.TARGET_SHAPE, config.SPATIAL_SVF_RES,
-            config.SPATIAL_SVF_STD, self.device, batch_size
-        )
-        phi_m = scaling_squaring.integrate_svf(svf_m, config.SCALING_AND_SQUARING_STEPS)
+        phi_m = self._generate_multi_res_deformation(batch_size)
         s_m   = warper.warp_volume(s, phi_m, mode='nearest')
 
         # 3. Independent fixed deformation
-        svf_f = svf_generator.generate_svf(
-            config.TARGET_SHAPE, config.SPATIAL_SVF_RES,
-            config.SPATIAL_SVF_STD, self.device, batch_size
-        )
-        phi_f = scaling_squaring.integrate_svf(svf_f, config.SCALING_AND_SQUARING_STEPS)
+        phi_f = self._generate_multi_res_deformation(batch_size)
         s_f   = warper.warp_volume(s, phi_f, mode='nearest')
 
         # 4. Independent intensity synthesis
