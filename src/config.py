@@ -54,7 +54,7 @@ BUCKNER40_URL = "https://surfer.nmr.mgh.harvard.edu/pub/data/tutorial_data.tar.g
 # --- Spatial Transform (Fixed/Moving Pair Generation) ---
 # ===========================================================
 MULTI_SVF_RES               = [(20, 24, 28), (10, 12, 14), (5, 6, 7)] # rv in {1:8, 1:16, 1:32}
-MULTI_SVF_MAX_STD           = 3.0  # bv = 3
+MULTI_SVF_MAX_STD           = 4.0 # bv = 3
 SCALING_AND_SQUARING_STEPS  = 7
 
 # ===========================================================
@@ -81,7 +81,7 @@ INTEGRATION_STEPS   = 5
 
 # Loss
 NUM_LABELS  = 26
-LAMBDA_REG  = 1.0
+LAMBDA_REG  = 0.5
 
 # Optimizer
 LEARNING_RATE     = 1e-4

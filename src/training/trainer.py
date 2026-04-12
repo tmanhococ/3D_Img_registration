@@ -243,8 +243,9 @@ class Trainer:
         pbar.close()
 
         # Final force-save
+        last_loss = self._loss_history[-1] if self._loss_history else 0.0
         self.checkpoint_mgr.save(
             self.model, self.optimizer,
-            total_iters, self._loss_history[-1], force=True
+            total_iters, last_loss, force=True
         )
         print('\n✅ Training complete!')
