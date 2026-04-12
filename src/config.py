@@ -39,8 +39,8 @@ CUSTOM_SVF_MICRO_RES  = (4,  4,  4)   # Fine-scale (inflate/deflate)
 CUSTOM_SVF_MICRO_STD  = 0.5
 
 # Primitive sizes (relative to volume, e.g. 0.05 = 5% of dim)
-CUSTOM_PRIM_SIZE_MIN  = 0.04       # Min primitive radius/half-size
-CUSTOM_PRIM_SIZE_MAX  = 0.25       # Max primitive radius/half-size
+CUSTOM_PRIM_SIZE_MIN  = 0.08       # Tăng Min size để loại bỏ các khối quá li ti rác
+CUSTOM_PRIM_SIZE_MAX  = 0.45       # Tăng Max size lấp đầy khoảng xanh vắng vẻ
 
 # Deformation augmentation priors
 CUSTOM_TWIST_STD      = 1.2        # SVF std for twist deformation
@@ -62,8 +62,10 @@ SCALING_AND_SQUARING_STEPS  = 7
 # ===========================================================
 # --- Intensity Generator (Synthetic MRI) ---
 # ===========================================================
-INTENSITY_GMM_MEAN_RANGE = (0.2, 0.8)
-INTENSITY_GMM_STD_RANGE  = (0.01, 0.1)
+# Trải rộng dải giá trị độ sáng (Mean) để các nhãn có xác suất khác màu cao hơn
+INTENSITY_GMM_MEAN_RANGE = (0.1, 0.95)
+# Giảm thiểu độ nhòe viền (Std) để ranh giới 2 khối không bị lem tan chảy vào nhau
+INTENSITY_GMM_STD_RANGE  = (0.01, 0.04)
 
 # ===========================================================
 # --- Artifact & Augmentation ---
