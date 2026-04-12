@@ -271,10 +271,12 @@ def generate_custom_labels(batch_size=1, device=config.DEVICE):
     # --- Step 1: Compute deformation field once on GPU ---
     phi = _compose_multiscale_svf(target_shape, device, batch_size)
 
-    # --- Step 2: Initialize running winner (background = label 0, score = 1.0) ---
+    # --- Step 2: Initialize running winner (background = label 0, score = 0.5) ---
+    # Bug fixed: winner_score was 1.0, meaning only shapes peaking > 1.0 survived!
+    # By dropping base threshold to 0.5 (or config.CUSTOM_BG_SCORE), all J labels will render.
     winner_score = torch.ones(
         (batch_size, 1, *target_shape), dtype=torch.float32, device=device
-    )
+    ) * 0.5
     winner_idx = torch.zeros(
         (batch_size, 1, *target_shape), dtype=torch.long, device=device
     )
